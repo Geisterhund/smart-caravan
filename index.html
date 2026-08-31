@@ -1,0 +1,252 @@
+<!doctype html>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#0b0d10">
+<title>Smart Caravan Dashboard V2</title>
+<style>
+:root{
+  --bg:#0b0d10; --card:#171a1f; --card2:#20242a; --text:#f4f6f8;
+  --muted:#8f98a3; --line:#2b3037; --good:#46d27d; --warn:#ffbf47;
+}
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+body{margin:0;background:var(--bg);color:var(--text);font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif}
+.app{max-width:760px;margin:auto;padding:calc(env(safe-area-inset-top) + 18px) 16px calc(env(safe-area-inset-bottom) + 28px)}
+header{display:flex;align-items:center;justify-content:space-between;margin-bottom:18px}
+.brand{font-size:25px;font-weight:800;letter-spacing:-.5px}
+.clock{text-align:right}.time{font-size:21px;font-weight:750}.date{font-size:12px;color:var(--muted);margin-top:2px}
+.connection{display:flex;align-items:center;gap:8px;color:var(--muted);font-size:13px;margin:-8px 0 16px}
+.dot{width:9px;height:9px;border-radius:50%;background:#666}.dot.ok{background:var(--good);box-shadow:0 0 12px rgba(70,210,125,.45)}
+.grid{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+.card{background:linear-gradient(145deg,var(--card2),var(--card));border:1px solid var(--line);border-radius:19px;padding:16px;min-height:132px;box-shadow:0 8px 24px rgba(0,0,0,.18)}
+.card.wide{grid-column:1/-1}.top{display:flex;justify-content:space-between;gap:10px;align-items:center}
+.label{font-size:12px;font-weight:700;letter-spacing:.8px;color:var(--muted)}
+.state{font-size:10px;font-weight:800;color:var(--good);letter-spacing:.5px}
+.value{font-size:37px;font-weight:800;letter-spacing:-1.3px;margin-top:18px}.unit{font-size:17px;color:var(--muted);font-weight:600}
+.sub{font-size:13px;color:var(--muted);margin-top:5px}
+.level{display:flex;align-items:center;justify-content:space-between;margin-top:15px}
+.bubble{width:64px;height:64px;border:2px solid #626b75;border-radius:50%;position:relative}
+.bubble:before,.bubble:after{content:"";position:absolute;background:#4a515a}
+.bubble:before{height:1px;width:48px;left:6px;top:30px}.bubble:after{width:1px;height:48px;top:6px;left:30px}
+.ball{position:absolute;width:16px;height:16px;border-radius:50%;background:var(--good);left:22px;top:22px;box-shadow:0 0 14px rgba(70,210,125,.5)}
+.axes{font-size:19px;font-weight:750;line-height:1.7}.axes span{color:var(--muted);font-size:12px;margin-right:6px}
+.bar{height:8px;background:#30353c;border-radius:99px;overflow:hidden;margin-top:18px}.fill{height:100%;width:50%;background:#e9edf1;border-radius:99px}
+.bottom{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-top:12px}
+.small{min-height:112px}.small .value{font-size:29px;margin-top:15px}
+button{width:100%;border:0;border-radius:15px;background:#f0f2f4;color:#101216;font-weight:800;font-size:16px;padding:15px;margin-top:15px}
+.fridge-controls{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:15px}
+.fridge-btn{margin:0;background:#2a2f36;color:var(--text);border:1px solid #3a414a}
+.fridge-btn.active{background:#f0f2f4;color:#101216;border-color:#f0f2f4}
+.fridge-btn:disabled{opacity:.42}
+#raw{display:none}
+@media(max-width:390px){.app{padding-left:12px;padding-right:12px}.grid{gap:9px}.card{padding:14px}.value{font-size:33px}}
+
+.caravan-level{align-items:center;gap:16px}
+.caravan-wrap{position:relative;flex:1;min-height:145px;display:flex;align-items:center;justify-content:center}
+.caravan-svg{width:100%;max-width:360px;height:auto;color:#69727d;opacity:.78}
+.bubble-in-caravan{
+  position:absolute;
+  width:64px;
+  height:64px;
+  left:47.5%;
+  top:50%;
+  transform:translate(-50%,-50%);
+  background:rgba(11,13,16,.72);
+  border-color:#69727d
+}
+.bubble-in-caravan .ball{left:22px;top:22px}
+@media(max-width:430px){
+  .caravan-level{align-items:center}
+  .caravan-wrap{min-height:125px}
+  .axes{font-size:17px}
+}
+
+</style>
+</head>
+<body>
+<div class="app">
+<header>
+  <div class="brand">Smart Caravan</div>
+  <div class="clock"><div class="time" id="time">--:--</div><div class="date" id="date">--</div></div>
+</header>
+
+<div class="connection"><span class="dot" id="dot"></span><span id="status">Nicht verbunden</span></div>
+
+<div class="grid">
+ <div class="card">
+  <div class="top"><div class="label">INNEN</div><div class="state" id="sensorState">LIVE</div></div>
+  <div class="value"><span id="tin">--.-</span><span class="unit"> °C</span></div>
+  <div class="sub"><span id="hum">--</span> % Luftfeuchte</div>
+ </div>
+ <div class="card">
+  <div class="top"><div class="label">AUSSEN</div><div class="state">LIVE</div></div>
+  <div class="value"><span id="tout">--.-</span><span class="unit"> °C</span></div>
+  <div class="sub">Außentemperatur</div>
+ </div>
+
+ <div class="card wide">
+  <div class="top"><div class="label">WASSERWAAGE</div><div class="state" id="levelState">OFFLINE</div></div>
+  <div class="level caravan-level">
+   <div class="caravan-wrap">
+    <svg class="caravan-svg" viewBox="0 0 320 170" aria-hidden="true">
+      <!-- Sauberer, symmetrischer Wohnwagen von oben.
+           Deichsel bewusst RECHTS = 180° gegenüber der vorherigen Version. -->
+      <g fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round">
+        <!-- Aufbau -->
+        <rect x="42" y="22" width="220" height="126" rx="34" ry="34" stroke-width="4"/>
+
+        <!-- leichte Stirn-/Heckkonturen -->
+        <path d="M67 24 Q52 48 52 85 Q52 122 67 146" stroke-width="2.5" opacity=".75"/>
+        <path d="M237 24 Q252 48 252 85 Q252 122 237 146" stroke-width="2.5" opacity=".75"/>
+
+        <!-- Deichsel rechts -->
+        <path d="M262 64 L302 78 M262 106 L302 92" stroke-width="4"/>
+        <path d="M302 78 L302 92" stroke-width="4"/>
+        <circle cx="310" cy="85" r="5" stroke-width="3"/>
+
+        <!-- schematische Tür -->
+        <rect x="62" y="58" width="26" height="54" rx="5" stroke-width="2.5" opacity=".8"/>
+
+        <!-- Räder nur angedeutet -->
+        <path d="M120 18 L151 18 M120 152 L151 152" stroke-width="5" opacity=".65"/>
+        <path d="M158 18 L189 18 M158 152 L189 152" stroke-width="5" opacity=".65"/>
+      </g>
+    </svg>
+    <div class="bubble bubble-in-caravan"><div class="ball" id="ball"></div></div>
+   </div>
+   <div class="axes">
+    <div><span>V/H</span><b id="x">--</b>°</div>
+    <div><span>L/R</span><b id="y">--</b>°</div>
+   </div>
+  </div>
+ </div>
+
+ <div class="card">
+  <div class="top"><div class="label">BATTERIE</div></div>
+  <div class="value"><span id="bat">--</span><span class="unit"> %</span></div>
+  <div class="bar"><div class="fill" id="batbar"></div></div>
+ </div>
+ <div class="card">
+  <div class="top"><div class="label">FRISCHWASSER</div></div>
+  <div class="value"><span id="water">--</span><span class="unit"> %</span></div>
+  <div class="bar"><div class="fill" id="waterbar"></div></div>
+ </div>
+
+ <div class="card wide small">
+  <div class="top"><div class="label">KÜHLSCHRANK</div><div class="state" id="fridgeState">OFFLINE</div></div>
+  <div class="value" id="fan">LÜFTER AUS</div>
+  <div class="sub" id="fridgeModeText">Manuelle Lüftersteuerung</div>
+  <div class="fridge-controls">
+    <button class="fridge-btn" id="fridgeOffBtn" disabled>AUS</button>
+    <button class="fridge-btn" id="fridgeOnBtn" disabled>EIN</button>
+  </div>
+ </div>
+</div>
+
+<button id="connectBtn">Verbinden</button>
+<div id="raw"></div>
+</div>
+
+<script>
+const SERVICE_UUID='7a2c0001-6e9d-4c68-a725-534d41525401';
+const DATA_UUID='7a2c0002-6e9d-4c68-a725-534d41525401';
+const COMMAND_UUID='7a2c0003-6e9d-4c68-a725-534d41525401';
+let device=null,characteristic=null,commandCharacteristic=null,reconnectTimer=null;
+const $=id=>document.getElementById(id);
+
+function setStatus(t,ok=false){$('status').textContent=t;$('dot').classList.toggle('ok',ok)}
+function setOnline(id,on){const e=$(id);e.textContent=on?'LIVE':'OFFLINE';e.style.color=on?'var(--good)':'var(--muted)'}
+function updateBall(){
+ const x=parseFloat($('x').textContent)||0,y=parseFloat($('y').textContent)||0;
+ const px=Math.max(-20,Math.min(20,x*6)),py=Math.max(-20,Math.min(20,y*6));
+ $('ball').style.transform=`translate(${px}px,${py}px)`;
+}
+
+function updateFridgeButtons(mode,online){
+ const off=$('fridgeOffBtn'),on=$('fridgeOnBtn');
+ const ready=!!commandCharacteristic && online;
+ off.disabled=!ready; on.disabled=!ready;
+ off.classList.toggle('active',mode===0);
+ on.classList.toggle('active',mode===1);
+ $('fridgeModeText').textContent=!online?'Steuerung offline':(mode===1?'Manuell EIN':'Manuell AUS');
+}
+async function sendFridgeMode(mode){
+ if(!commandCharacteristic){setStatus('Kühlschrank-Steuerung nicht verfügbar');return}
+ try{
+   const data=new TextEncoder().encode(`CMD|FRIDGE=${mode}`);
+   if(typeof commandCharacteristic.writeValueWithResponse==='function'){
+     await commandCharacteristic.writeValueWithResponse(data);
+   }else{
+     await commandCharacteristic.writeValue(data);
+   }
+ }catch(e){
+   console.log(e);
+   setStatus('Befehl konnte nicht gesendet werden');
+ }
+}
+$('fridgeOffBtn').onclick=()=>sendFridgeMode(0);
+$('fridgeOnBtn').onclick=()=>sendFridgeMode(1);
+
+function parseCaravan(text){
+ $('raw').textContent=text;if(!text.startsWith('SC|'))return;
+ const d={};for(const part of text.split('|').slice(1)){const p=part.indexOf('=');if(p>=0)d[part.slice(0,p)]=part.slice(p+1)}
+ if('TIN'in d)$('tin').textContent=d.TIN;if('TOUT'in d)$('tout').textContent=d.TOUT;if('HUM'in d)$('hum').textContent=d.HUM;
+ if('X'in d)$('x').textContent=d.X;if('Y'in d)$('y').textContent=d.Y;
+ if('BAT'in d){$('bat').textContent=d.BAT;$('batbar').style.width=Math.max(0,Math.min(100,+d.BAT))+'%'}
+ if('WATER'in d){$('water').textContent=d.WATER;$('waterbar').style.width=Math.max(0,Math.min(100,+d.WATER))+'%'}
+ if('LEVEL'in d)setOnline('levelState',d.LEVEL==='1');
+ const fridgeOnline=('FRIDGE'in d)&&d.FRIDGE==='1';
+ if('FRIDGE'in d)setOnline('fridgeState',fridgeOnline);
+ if('FAN'in d)$('fan').textContent=d.FAN==='1'?'LÜFTER EIN':'LÜFTER AUS';
+ if('FMODE'in d)updateFridgeButtons(parseInt(d.FMODE,10),fridgeOnline);
+ updateBall();
+}
+function handleNotification(e){const v=e.target.value;parseCaravan(new TextDecoder().decode(new Uint8Array(v.buffer,v.byteOffset,v.byteLength)))}
+async function attachToDevice(dev){
+ device=dev;device.removeEventListener('gattserverdisconnected',handleDisconnect);device.addEventListener('gattserverdisconnected',handleDisconnect);
+ setStatus('Verbinde …');const server=device.gatt.connected?device.gatt:await device.gatt.connect();
+ const service=await server.getPrimaryService(SERVICE_UUID);characteristic=await service.getCharacteristic(DATA_UUID);
+ try{commandCharacteristic=await service.getCharacteristic(COMMAND_UUID)}catch(_){commandCharacteristic=null}
+ characteristic.removeEventListener('characteristicvaluechanged',handleNotification);characteristic.addEventListener('characteristicvaluechanged',handleNotification);
+ await characteristic.startNotifications();try{const v=await characteristic.readValue();handleNotification({target:{value:v}})}catch(_){}
+ setStatus('Smart-Caravan verbunden',true);$('connectBtn').textContent='Verbunden';
+}
+function handleDisconnect(){commandCharacteristic=null;updateFridgeButtons(-1,false);setStatus('Verbindung getrennt …');$('connectBtn').textContent='Verbinden';clearTimeout(reconnectTimer);reconnectTimer=setTimeout(autoConnectKnownDevice,1200)}
+async function autoConnectKnownDevice(){
+ clearTimeout(reconnectTimer);if(!navigator.bluetooth||typeof navigator.bluetooth.getDevices!=='function')return;
+ try{
+  setStatus('Suche Smart-Caravan …');const ds=await navigator.bluetooth.getDevices();const known=ds.find(d=>d.name==='Smart-Caravan');
+  if(!known){setStatus('Nicht verbunden');return} device=known;
+  device.removeEventListener('gattserverdisconnected',handleDisconnect);device.addEventListener('gattserverdisconnected',handleDisconnect);
+  if(typeof device.watchAdvertisements==='function'){
+   setStatus('Warte auf Smart-Caravan …');
+   await new Promise(async(resolve,reject)=>{
+    let done=false;const cleanup=()=>{device.removeEventListener('advertisementreceived',hit);clearTimeout(to)};
+    const hit=()=>{if(done)return;done=true;cleanup();resolve()};
+    const to=setTimeout(()=>{if(done)return;done=true;cleanup();reject(new Error('timeout'))},10000);
+    device.addEventListener('advertisementreceived',hit);try{await device.watchAdvertisements()}catch(e){if(!done){done=true;cleanup();reject(e)}}
+   });
+   await new Promise(r=>setTimeout(r,350));
+  }
+  await attachToDevice(device);
+ }catch(e){console.log(e);setStatus('Nicht verbunden');}
+}
+async function connectBLE(){
+ try{const d=await navigator.bluetooth.requestDevice({filters:[{name:'Smart-Caravan'}],optionalServices:[SERVICE_UUID]});await attachToDevice(d)}
+ catch(e){setStatus('Nicht verbunden')}
+}
+$('connectBtn').onclick=connectBLE;
+if(navigator.bluetooth){
+ window.addEventListener('load',()=>setTimeout(autoConnectKnownDevice,400));
+ window.addEventListener('focus',()=>{if(!device||!device.gatt.connected)setTimeout(autoConnectKnownDevice,300)});
+ document.addEventListener('visibilitychange',()=>{if(document.visibilityState==='visible'&&(!device||!device.gatt.connected))setTimeout(autoConnectKnownDevice,300)});
+}else{$('connectBtn').disabled=true;setStatus('Web Bluetooth nicht unterstützt')}
+
+function tick(){
+ const d=new Date();$('time').textContent=d.toLocaleTimeString('de-DE',{hour:'2-digit',minute:'2-digit'});
+ $('date').textContent=d.toLocaleDateString('de-DE',{weekday:'short',day:'2-digit',month:'2-digit'});
+}
+tick();setInterval(tick,1000);
+</script>
+</body></html>
