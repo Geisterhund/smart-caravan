@@ -1,0 +1,39 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Smart Caravan BLE Test V2</title>
+<style>
+body{margin:0;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;background:#10151d;color:#f3f6f9;padding:20px} .wrap{max-width:760px;margin:auto} h1{margin:4px 0 6px;font-size:28px}.sub{color:#98a6b6;margin-bottom:18px}button{width:100%;border:0;border-radius:14px;padding:15px 18px;font-size:17px;font-weight:700;background:#5cc8ff;color:#061018;margin-bottom:14px}.status{display:flex;align-items:center;gap:10px;padding:13px 14px;border-radius:14px;background:#18212c;margin-bottom:14px}.dot{width:10px;height:10px;border-radius:50%;background:#ff9d57}.dot.ok{background:#49d17d}.grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}.card{min-height:120px;background:#18212c;border-radius:17px;padding:15px}.label{color:#98a6b6;font-size:12px;font-weight:700;letter-spacing:.08em}.value{margin-top:12px;font-size:31px;font-weight:700}.small{font-size:15px;color:#98a6b6;margin-top:5px}.raw{margin-top:14px;background:#1e2936;border-radius:14px;padding:14px;font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:12px;word-break:break-all;color:#c8d3df}
+</style>
+</head>
+<body>
+<div class="wrap">
+<h1>Smart Caravan</h1><div class="sub">Bluefy BLE Test V2 – Wiederverbindung</div>
+<button id="connectBtn">Mit Smart-Caravan verbinden</button>
+<div class="status"><div id="dot" class="dot"></div><div id="status">Nicht verbunden</div></div>
+<div class="grid">
+<div class="card"><div class="label">INNEN</div><div class="value"><span id="tin">--.-</span> °C</div><div class="small"><span id="hum">--</span> % Luftfeuchte</div></div>
+<div class="card"><div class="label">AUSSEN</div><div class="value"><span id="tout">--.-</span> °C</div></div>
+<div class="card"><div class="label">WASSERWAAGE</div><div class="value" style="font-size:23px">X <span id="x">--.--</span>°<br>Y <span id="y">--.--</span>°</div><div class="small" id="levelState">OFFLINE</div></div>
+<div class="card"><div class="label">KÜHLSCHRANK</div><div class="value" id="fan">--</div><div class="small" id="fridgeState">OFFLINE</div></div>
+<div class="card"><div class="label">BATTERIE</div><div class="value"><span id="bat">--</span> %</div></div>
+<div class="card"><div class="label">WASSER</div><div class="value"><span id="water">--</span> %</div></div>
+</div>
+<div class="raw"><b>Rohdaten:</b><br><span id="raw">Noch keine Daten</span></div>
+</div>
+<script>
+const SERVICE_UUID='7a2c0001-6e9d-4c68-a725-534d41525401';
+const DATA_UUID='7a2c0002-6e9d-4c68-a725-534d41525401';
+let device, characteristic;
+const $=id=>document.getElementById(id);
+function setStatus(text,ok=false){$('status').textContent=text;$('dot').classList.toggle('ok',ok)}
+function parseCaravan(text){$('raw').textContent=text;if(!text.startsWith('SC|'))return;const data={};for(const part of text.split('|').slice(1)){const p=part.indexOf('=');if(p<0)continue;data[part.slice(0,p)]=part.slice(p+1)}if('TIN'in data)$('tin').textContent=data.TIN;if('TOUT'in data)$('tout').textContent=data.TOUT;if('HUM'in data)$('hum').textContent=data.HUM;if('X'in data)$('x').textContent=data.X;if('Y'in data)$('y').textContent=data.Y;if('BAT'in data)$('bat').textContent=data.BAT;if('WATER'in data)$('water').textContent=data.WATER;if('LEVEL'in data)$('levelState').textContent=data.LEVEL==='1'?'ONLINE':'OFFLINE';if('FRIDGE'in data)$('fridgeState').textContent=data.FRIDGE==='1'?'ONLINE':'OFFLINE';if('FAN'in data)$('fan').textContent=data.FAN==='1'?'LÜFTER EIN':'LÜFTER AUS'}
+function handleNotification(event){const value=event.target.value;const bytes=new Uint8Array(value.buffer,value.byteOffset,value.byteLength);parseCaravan(new TextDecoder('utf-8').decode(bytes))}
+async function connectBLE(){try{setStatus('Gerät auswählen …');device=await navigator.bluetooth.requestDevice({filters:[{name:'Smart-Caravan'}],optionalServices:[SERVICE_UUID]});device.addEventListener('gattserverdisconnected',()=>setStatus('Verbindung getrennt'));setStatus('Verbinde …');const server=await device.gatt.connect();const service=await server.getPrimaryService(SERVICE_UUID);characteristic=await service.getCharacteristic(DATA_UUID);characteristic.addEventListener('characteristicvaluechanged',handleNotification);await characteristic.startNotifications();try{const current=await characteristic.readValue();handleNotification({target:{value:current}})}catch(_){}setStatus('Smart-Caravan verbunden',true)}catch(err){console.error(err);setStatus('Fehler: '+(err.message||err))}}
+$('connectBtn').addEventListener('click',connectBLE);
+if(!navigator.bluetooth){setStatus('Web Bluetooth wird in diesem Browser nicht unterstützt');$('connectBtn').disabled=true}
+</script>
+</body>
+</html>
